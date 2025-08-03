@@ -1,0 +1,81 @@
+//PARTE A
+// Universidad del Valle de Guatemala
+// BE3029 - Electronica Digital 2
+// Practica de laboratorio 2
+// Nicole Rodriguez
+// 21/07/2025
+
+// Librerias
+#include <Arduino.h>
+#include <stdint.h>
+
+// Pines de LEDs
+const uint8_t led1 = 13;
+const uint8_t led2 = 12;
+const uint8_t led3 = 25;
+const uint8_t led4 = 27;
+
+// Pines de botones
+const uint8_t butSumar = 18;   // Conectado a pin con interrupción (GPIO18)
+const uint8_t butRestar = 5;   // Conectado a pin con interrupción (GPIO5)
+
+// Contador de 4 bits
+volatile int8_t contador = 0;
+
+// Anti-rebote
+volatile uint32_t ultimaInterrupcionSumar = 0;
+volatile uint32_t ultimaInterrupcionRestar = 0;
+const uint16_t tiempoRebote = 200; // ms
+
+void actualizarLeds(int8_t valor) {
+  // Convertimos el valor binario a cada LED
+  digitalWrite(led1, (valor >> 3) & 0x01); // bit 3
+  digitalWrite(led2, (valor >> 2) & 0x01); // bit 2
+  digitalWrite(led3, (valor >> 1) & 0x01); // bit 1
+  digitalWrite(led4, (valor >> 0) & 0x01); // bit 0
+}
+
+// ISR para botón Sumar
+void ISR_sumar() {
+  uint32_t tiempoActual = millis();
+  if (tiempoActual - ultimaInterrupcionSumar > tiempoRebote) {
+    contador++;
+    if (contador > 15) contador = 0;
+    actualizarLeds(contador);
+    ultimaInterrupcionSumar = tiempoActual;
+  }
+}
+
+// ISR para botón Restar
+void ISR_restar() {
+  uint32_t tiempoActual = millis();
+  if (tiempoActual - ultimaInterrupcionRestar > tiempoRebote) {
+    contador--;
+    if (contador < 0) contador = 15;
+    actualizarLeds(contador);
+    ultimaInterrupcionRestar = tiempoActual;
+  }
+}
+
+void setup() {
+  // Configuración LEDs como salida
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+  pinMode(led4, OUTPUT);
+
+  // Configuración botones como entrada
+  pinMode(butSumar, INPUT_PULLUP);   // pull-up interno
+  pinMode(butRestar, INPUT_PULLUP);  // pull-up interno también
+
+  // Mostrar estado inicial
+  actualizarLeds(contador);
+
+  // Interrupciones (caída de flanco)
+  attachInterrupt(digitalPinToInterrupt(butSumar), ISR_sumar, FALLING);
+  attachInterrupt(digitalPinToInterrupt(butRestar), ISR_restar, FALLING);
+}
+
+void loop() {
+  //interrupciones.
+}
