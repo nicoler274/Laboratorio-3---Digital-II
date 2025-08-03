@@ -1,0 +1,69 @@
+//PARTE B
+// Universidad del Valle de Guatemala
+// BE3029 - Electronica Digital 2
+// Practica de laboratorio 2
+// Nicole Rodriguez
+// 29/07/2025
+
+// Librerias
+#include <Arduino.h>
+#include <stdint.h>
+
+// Pines de LEDs
+const uint8_t led1 = 13;
+const uint8_t led2 = 12;
+const uint8_t led3 = 25;
+const uint8_t led4 = 27;
+
+//Variables Globales 
+volatile uint8_t contador = 0; // Valor del contador binario
+hw_timer_t* timer0 = NULL;     // Puntero al temporizador
+
+// Prototipos de Funciones
+void IRAM_ATTR ISR_timer(void);
+void actualizarLeds(uint8_t valor);
+
+void setup() {
+  // Configuración LEDs como salida
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+  pinMode(led4, OUTPUT);
+  actualizarLeds(contador);
+    
+  //Calculos para el timer
+  // Timer 0, prescaler de 80 → 1 tick = 1 µs (80 MHz / 80 = 1 MHz)
+  timer0 = timerBegin(0, 80, true); // (número de timer, prescaler, flanco subida)
+  timerAttachInterrupt(timer0, &ISR_timer, true);
+  timerAlarmWrite(timer0, 250000, true); // 250 ms = 250,000 µs
+  timerAlarmEnable(timer0); // Habilitar la alarma
+}
+
+void loop() {
+  //interrupciones
+}
+
+//Interrupcion
+void IRAM_ATTR ISR_timer() {
+  contador++;
+  if (contador > 15) contador = 0;  // Regresar a 0 después de 15
+  actualizarLeds(contador);
+}
+
+
+// Estado inicial de Leds
+void apagarTodosLEDs(void) {
+  digitalWrite(led1, LOW);
+  digitalWrite(led2, LOW);
+  digitalWrite(led3, LOW);
+  digitalWrite(led4, LOW);
+}
+
+// Valor binario de Leds
+void actualizarLeds(uint8_t valor) {
+  // Convertimos el valor binario a cada LED
+  digitalWrite(led1, (valor >> 3) & 0x01); // bit 3
+  digitalWrite(led2, (valor >> 2) & 0x01); // bit 2
+  digitalWrite(led3, (valor >> 1) & 0x01); // bit 1
+  digitalWrite(led4, (valor >> 0) & 0x01); // bit 0
+}
