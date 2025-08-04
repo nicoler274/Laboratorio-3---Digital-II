@@ -1,0 +1,134 @@
+//PARTE C
+// Universidad del Valle de Guatemala
+// BE3029 - Electronica Digital 2
+// Practica de laboratorio 2
+// Nicole Rodriguez
+// 21/07/2025
+
+// Librerias
+#include <Arduino.h>
+#include <stdint.h>
+
+// Pines de LEDs modo manual (contador binario)
+const uint8_t led1 = 13;
+const uint8_t led2 = 12;
+const uint8_t led3 = 25;
+const uint8_t led4 = 27;
+
+// Pines de LEDs modo automático (intermitente)
+const uint8_t led5 = 33;
+const uint8_t led6 = 32;
+const uint8_t led7 = 23;
+const uint8_t led8 = 22;
+
+// Buzzer
+const uint8_t buzz = 21;
+
+// Pines de botones
+const uint8_t butSumar = 18;
+const uint8_t butRestar = 5;
+
+// Variables globales
+volatile int8_t contadorManual = 0;
+volatile uint8_t contadorTimer = 0;
+volatile bool alarmaEncendida = false;
+
+// Anti-rebote
+volatile uint32_t ultimaInterrupcionSumar = 0;
+volatile uint32_t ultimaInterrupcionRestar = 0;
+const uint16_t tiempoRebote = 200; // ms
+
+// Timer
+hw_timer_t* timer0 = NULL;
+
+// === Funciones ===
+
+// Actualiza LEDs del contador manual
+void actualizarLedsManual(int8_t valor) {
+  digitalWrite(led1, (valor >> 3) & 0x01);
+  digitalWrite(led2, (valor >> 2) & 0x01);
+  digitalWrite(led3, (valor >> 1) & 0x01);
+  digitalWrite(led4, (valor >> 0) & 0x01);
+}
+
+// Enciende o apaga LEDs automáticos + buzzer
+void cambiarEstadoAlarma(bool estado) {
+  digitalWrite(led5, estado);
+  digitalWrite(led6, estado);
+  digitalWrite(led7, estado);
+  digitalWrite(led8, estado);
+  digitalWrite(buzz, estado);
+}
+
+// ISR botón sumar
+void IRAM_ATTR ISR_sumar() {
+  uint32_t tiempoActual = millis();
+  if (tiempoActual - ultimaInterrupcionSumar > tiempoRebote) {
+    contadorManual++;
+    if (contadorManual > 15) contadorManual = 0;
+    actualizarLedsManual(contadorManual);
+    ultimaInterrupcionSumar = tiempoActual;
+  }
+}
+
+// ISR botón restar
+void IRAM_ATTR ISR_restar() {
+  uint32_t tiempoActual = millis();
+  if (tiempoActual - ultimaInterrupcionRestar > tiempoRebote) {
+    contadorManual--;
+    if (contadorManual < 0) contadorManual = 15;
+    actualizarLedsManual(contadorManual);
+    ultimaInterrupcionRestar = tiempoActual;
+  }
+}
+
+// ISR timer
+void IRAM_ATTR ISR_timer() {
+  contadorTimer++;
+  if (contadorTimer > 15) contadorTimer = 0;
+
+  if (contadorTimer == contadorManual) {
+    alarmaEncendida = !alarmaEncendida; // Cambiar estado
+    cambiarEstadoAlarma(alarmaEncendida); // Actualizar LEDs y buzzer
+    contadorTimer = 0; // Reiniciar contador automático
+  }
+}
+
+void setup() {
+  // LEDs manuales
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+  pinMode(led4, OUTPUT);
+
+  // LEDs automáticos
+  pinMode(led5, OUTPUT);
+  pinMode(led6, OUTPUT);
+  pinMode(led7, OUTPUT);
+  pinMode(led8, OUTPUT);
+
+  // Buzzer
+  pinMode(buzz, OUTPUT);
+  cambiarEstadoAlarma(false); // Apagar alarma al inicio
+
+  // Botones
+  pinMode(butSumar, INPUT_PULLUP);
+  pinMode(butRestar, INPUT_PULLUP);
+
+  // LEDs manuales estado inicial
+  actualizarLedsManual(contadorManual);
+
+  // Interrupciones botones
+  attachInterrupt(digitalPinToInterrupt(butSumar), ISR_sumar, FALLING);
+  attachInterrupt(digitalPinToInterrupt(butRestar), ISR_restar, FALLING);
+
+  // Timer
+  timer0 = timerBegin(0, 80, true); // 1 µs por tick
+  timerAttachInterrupt(timer0, &ISR_timer, true);
+  timerAlarmWrite(timer0, 250000, true); // 250 ms
+  timerAlarmEnable(timer0);
+}
+
+void loop() {
+  // Todo se maneja con interrupciones.
+}
